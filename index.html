@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fila Cirúrgica — Adulto (HUUFMA)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#F4F6FA; --surface:#FFFFFF; --ink:#131B2E; --ink-soft:#5B6B85; --line:#E1E6EF;
+    --accent:#1F4E79; --accent-deep:#122F49; --accent-tint:#E9F0F6;
+    --urgente:#B3261E; --urgente-bg:#FCE4D6;
+    --preferente:#B25400; --preferente-bg:#FFF2CC;
+    --internado:#8A6D00; --internado-bg:#E8D8F8;
+    --eletivo:#2E7D32; --eletivo-bg:#E2EFDA;
+    --radius:10px;
+    --font-display:'Fraunces', Georgia, serif;
+    --font-body:'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-mono:'IBM Plex Mono', 'Courier New', monospace;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body); -webkit-font-smoothing:antialiased;}
+
+  .header{
+    background:linear-gradient(180deg, var(--accent-deep) 0%, var(--accent) 100%);
+    color:#fff; padding:28px 32px 0 32px; position:relative; overflow:hidden;
+  }
+  .eyebrow{font-family:var(--font-mono); font-size:11px; letter-spacing:2.5px; text-transform:uppercase; color:#BFD4E6; margin:0 0 6px 0;}
+  .header h1{font-family:var(--font-display); font-weight:600; font-size:clamp(28px, 4vw, 42px); margin:0 0 4px 0;}
+  .header p.sub{margin:0 0 18px 0; color:#CFE0EC; font-size:14px; max-width:640px;}
+  .header-top{display:flex; justify-content:space-between; align-items:flex-start; gap:20px; flex-wrap:wrap;}
+  .header-actions{display:flex; gap:10px; flex-wrap:wrap;}
+  
+  .btn{
+    font-family:var(--font-body); font-weight:600; font-size:13px; padding:9px 16px; border-radius:8px;
+    border:1px solid rgba(255,255,255,0.35); background:rgba(255,255,255,0.08); color:#fff; cursor:pointer;
+    transition:background .15s ease; white-space:nowrap;
+  }
+  .btn:hover{background:rgba(255,255,255,0.18);}
+  .btn.primary{background:#fff; color:var(--accent-deep); border-color:#fff;}
+  .btn.primary:hover{background:#EAF1F7;}
+  .btn.ghost-dark{background:transparent; border-color:var(--line); color:var(--ink-soft);}
+  .btn.ghost-dark:hover{background:var(--accent-tint); color:var(--accent-deep);}
+  .btn.small{padding:6px 11px; font-size:12px;}
+
+  .ecg-wrap{width:100%; height:46px; margin-top:6px; overflow:hidden; position:relative;}
+  .ecg-track{position:absolute; top:0; left:0; height:100%; display:flex; align-items:center; animation:scroll-ecg 9s linear infinite;}
+  .ecg-track svg{display:block; height:46px; width:auto; flex-shrink:0;}
+  @keyframes scroll-ecg{ from{transform:translateX(0);} to{transform:translateX(-460px);} }
+
+  .sync-bar{
+    margin:16px 32px 0 32px; padding:11px 16px; border-radius:9px; font-size:12.5px;
+    display:flex; align-items:center; justify-content:space-between; border:1px solid var(--line); background:var(--surface);
+  }
+  .sync-bar.ok{background:#EAF7EE; border-color:#BFE3C8; color:#1E5B33;}
+  .sync-bar.warn{background:#FDF6E3; border-color:#EFD98F; color:#7A5B00;}
+  .sync-bar .dot{display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:7px; vertical-align:middle;}
+  .sync-bar.ok .dot{background:#2E9E4E;}
+  .sync-bar.warn .dot{background:#D9A400;}
+
+  .kpis{display:grid; grid-template-columns:repeat(5, 1fr); gap:14px; padding:20px 32px 0 32px; margin-top:-14px;}
+  .kpi{
+    background:var(--surface); border:1px solid var(--line); border-left:5px solid var(--ink-soft);
+    border-radius:var(--radius); padding:14px 16px; cursor:pointer; transition:transform .1s ease;
+  }
+  .kpi:hover{transform:translateY(-1px);}
+  .kpi.active{box-shadow:0 0 0 2px var(--accent) inset;}
+  .kpi .label{font-size:11.5px; color:var(--ink-soft); font-weight:600; text-transform:uppercase;}
+  .kpi .num{font-family:var(--font-display); font-size:30px; font-weight:600; margin-top:2px; color:var(--ink);}
+  .kpi.all{border-left-color:var(--accent);}
+  .kpi.urgente{border-left-color:var(--urgente);}
+  .kpi.preferente{border-left-color:var(--preferente);}
+  .kpi.internado{border-left-color:var(--internado);}
+  .kpi.eletivo{border-left-color:var(--eletivo);}
+
+  .toolbar{display:flex; gap:12px; align-items:center; flex-wrap:wrap; padding:18px 32px 8px 32px;}
+  .search{flex:1 1 260px; position:relative;}
+  .search input{
+    width:100%; padding:10px 14px 10px 34px; border-radius:8px; border:1px solid var(--line);
+    font-family:var(--font-body); font-size:13.5px; background:var(--surface); color:var(--ink);
+  }
+  .search::before{content:"⌕"; position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--ink-soft); font-size:15px;}
+  select.sortsel{padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:13px;}
+  .result-count{font-size:12.5px; color:var(--ink-soft); padding:0 32px 4px 32px;}
+
+  /* TABELA COM ROLAGEM E PROTEÇÃO CONTRA CORTES */
+  .table-wrap{padding:6px 32px 40px 32px; overflow-x:auto;}
+  table{
+    width:100%; min-width:1150px; border-collapse:separate; border-spacing:0;
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    overflow:hidden; font-size:13px; table-layout:auto;
+  }
+  thead th{
+    background:var(--accent-deep); color:#fff; font-weight:600; font-size:11.5px; letter-spacing:0.4px;
+    text-transform:uppercase; padding:11px 12px; text-align:left; white-space:nowrap; position:sticky; top:0;
+  }
+  tbody td{padding:9px 10px; border-top:1px solid var(--line); vertical-align:middle;}
+  tbody tr.row-urgente{background:var(--urgente-bg);}
+  tbody tr.row-preferente{background:var(--preferente-bg);}
+  tbody tr.row-internado{background:var(--internado-bg);}
+  tbody tr.row-eletivo{background:var(--eletivo-bg);}
+  
+  .mono{font-family:var(--font-mono); font-size:12.5px; color:var(--ink-soft);}
+  .paciente-name{font-weight:600; color:var(--ink); min-width:250px;}
+
+  .cell-input{
+    width:100%; border:1px solid transparent; background:transparent;
+    font-family:var(--font-body); font-size:13px; color:var(--ink);
+    padding:5px 6px; border-radius:5px; box-sizing:border-box;
+  }
+  .cell-input:hover{border-color:var(--line);}
+  .cell-input:focus{outline:none; border-color:var(--accent); background:#fff;}
+
+  .expand-btn{background:none; border:1px solid var(--line); border-radius:6px; width:28px; height:28px; cursor:pointer; color:var(--ink-soft); font-size:12px;}
+  .expand-btn:hover{background:var(--accent-tint); color:var(--accent-deep);}
+
+  tr.detail-row td{background:#FBFCFE; padding:16px 20px; border-top:none;}
+  .detail-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:14px;}
+  .detail-col label{display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-soft); font-weight:700; margin-bottom:4px;}
+  .detail-col textarea, .detail-col input{
+    width:100%; border:1px solid var(--line); border-radius:7px; padding:8px 10px; font-family:var(--font-body); font-size:12.5px; color:var(--ink);
+  }
+  .detail-col textarea{min-height:60px; resize:vertical;}
+
+  .modal-overlay{position:fixed; inset:0; background:rgba(19,27,46,0.45); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;}
+  .modal-overlay.open{display:flex;}
+  .modal{background:#fff; border-radius:12px; width:100%; max-width:650px; max-height:90vh; overflow-y:auto; padding:26px 28px; box-shadow:0 20px 50px rgba(0,0,0,0.25);}
+  .modal h2{font-family:var(--font-display); font-size:22px; margin:0 0 4px 0; color:var(--ink);}
+  .form-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .form-grid label{display:block; font-size:11px; font-weight:600; color:var(--ink-soft); margin-bottom:4px; text-transform:uppercase;}
+  .form-grid input, .form-grid select, .form-grid textarea{width:100%; padding:8px 10px; border:1px solid var(--line); border-radius:7px; font-size:13px;}
+  .modal-actions{display:flex; justify-content:flex-end; gap:10px; margin-top:20px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-top">
+    <div>
+      <p class="eyebrow">Cirurgia Cardiovascular · Programação Adulto</p>
+      <h1>Fila Cirúrgica</h1>
+      <p class="sub">Painel vivo sincronizado com o Google Sheets — ordenação clínica hierárquica automática.</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="btnSort">↕ Prioridade Clínica</button>
+      <button class="btn" id="btnAdd">+ Novo Paciente</button>
+      <button class="btn primary" id="btnExport">⇩ Exportar Excel</button>
+    </div>
+  </div>
+  <div class="ecg-wrap"><div class="ecg-track" id="ecgTrack"></div></div>
+</div>
+
+<div class="sync-bar" id="syncBar"></div>
+<div class="kpis" id="kpiRow"></div>
+
+<div class="toolbar">
+  <div class="search"><input type="text" id="searchInput" placeholder="Buscar por paciente, prontuário, procedimento ou médico…"></div>
+  <select class="sortsel" id="sortSelect">
+    <option value="clinico">Ordenar: Prioridade Clínica</option>
+    <option value="nome">Ordenar: Nome (A–Z)</option>
+    <option value="data">Ordenar: Data Prevista</option>
+  </select>
+  <button class="btn ghost-dark small" id="btnResetFilters">Limpar Filtros</button>
+  <button class="btn ghost-dark small" id="btnRefreshData">🔄 Recarregar Nuvem</button>
+</div>
+<div class="result-count" id="resultCount"></div>
+
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th style="min-width:110px;">Prontuário</th>
+        <th style="min-width:260px;">Paciente</th>
+        <th style="min-width:80px;">Leito</th>
+        <th style="min-width:140px;">Procedimento</th>
+        <th style="min-width:140px;">Médico</th>
+        <th style="min-width:190px;">Status</th>
+        <th style="min-width:130px;">Data Prevista</th>
+        <th style="min-width:100px;">LEC</th>
+        <th style="min-width:70px;">Detalhes</th>
+        <th style="min-width:60px;">Ações</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+</div>
+
+<footer>
+  Sincronizado via <strong>Google Sheets & GitHub Pages</strong> · <span id="footerCount">0 registros</span>
+</footer>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <h2>Cadastrar Paciente</h2>
+    <p style="font-size:12px; color:var(--ink-soft); margin-bottom:15px;">Insira as informações nas 17 colunas padronizadas.</p>
+    <div class="form-grid" id="formGrid"></div>
+    <div class="modal-actions">
+      <button class="btn ghost-dark" id="btnCancelAdd">Cancelar</button>
+      <button class="btn primary" id="btnSaveAdd" style="background:var(--accent); color:#fff;">Salvar na Nuvem</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* 🔴 SUA URL DO GOOGLE APPS SCRIPT PREENCHIDA AUTOMATICAMENTE: */
+const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwqM4b4u9G89idIdpAQnuroKWyoLYsvoPITNNl3gy7ONIIIvZmfPcAa4zJkp8B1oqna3g/exec";
+
+const COLUNAS = [
+  "Prontuário", "Paciente", "Leito", "Procedimento", "Médico",
+  "Status", "Data Prevista", "LEC", "Peso", "Altura",
+  "Tipagem", "Insumos", "Observaçõe", "Cardiologista",
+  "Cirurgia Cardíaca", "Odonto", "Contato"
+];
+
+let state = { data: [], search: "", activeStatuses: new Set(), sortMode: "clinico", expanded: new Set() };
+
+/* FORMATAÇÃO ROBUSTA DE DATAS (CONVERTE ISO EM DD/MM/YYYY) */
+function formatDataExibicao(val) {
+  if (!val || ["-", "nan", "none", "null", ""].includes(String(val).toLowerCase().trim())) return "-";
+  let s = String(val).trim();
+  if (s.includes("T") || (s.includes("-") && s.length >= 10)) {
+    let cleanDate = s.split("T")[0];
+    let parts = cleanDate.split("-");
+    if (parts.length === 3 && parts[0].length === 4) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+  }
+  return s;
+}
+
+/* LÓGICA DE PRIORIDADE CLÍNICA (7 GRUPOS HIERÁRQUICOS) */
+function getPrioridadeClinica(row) {
+  const status = String(row["Status"] || "").toLowerCase();
+  const dataPrev = String(row["Data Prevista"] || "").toLowerCase();
+  
+  if (dataPrev && !["-", "nan", "none", "", "null"].includes(dataPrev) && !dataPrev.includes("sobreaviso")) return 1;
+  if (status.includes("internado")) return 2;
+  if (status.includes("urgente") || status.includes("urgencia")) return 3;
+  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) return 4;
+  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) return 5;
+  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) return 6;
+  if (status.includes("inapta") || status.includes("inapto")) return 7;
+  return 8;
+}
+
+async function loadFromNuvem(){
+  renderSyncBar("loading");
+  try {
+    const res = await fetch(GOOGLE_SCRIPT_URL);
+    const json = await res.json();
+    state.data = json;
+    renderSyncBar("ok");
+    renderAll();
+  } catch(e) { renderSyncBar("error"); }
+}
+
+async function saveToNuvem(){
+  renderSyncBar("saving");
+  try {
+    await fetch(GOOGLE_SCRIPT_URL, {
+      method: "POST", mode: "no-cors",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(state.data)
+    });
+    setTimeout(() => renderSyncBar("ok"), 800);
+  } catch(e) { renderSyncBar("error"); }
+}
+
+let persistTimer = null;
+function persist(){
+  clearTimeout(persistTimer);
+  persistTimer = setTimeout(saveToNuvem, 600);
+}
+
+function renderSyncBar(status){
+  const el = document.getElementById('syncBar');
+  if(status === "ok") el.innerHTML = `<div class="msg"><span class="dot"></span>Conectado ao <strong>Google Sheets</strong>. Sincronização em tempo real ativa.</div>`;
+  else if(status === "loading") el.innerHTML = `<div class="msg"><span class="dot"></span>Carregando dados da nuvem...</div>`;
+  else if(status === "saving") el.innerHTML = `<div class="msg"><span class="dot"></span>Salvando alterações na nuvem...</div>`;
+  else el.innerHTML = `<div class="msg">❌ Erro na conexão com o Google Sheets.</div>`;
+  el.className = "sync-bar " + (status==="ok"?"ok":"warn");
+}
+
+function getVisibleRows(){
+  let rows = state.data.map((r, idx) => ({...r, _idx: idx}));
+
+  if(state.search.trim()){
+    const q = state.search.toLowerCase();
+    rows = rows.filter(r => 
+      String(r["Paciente"]||"").toLowerCase().includes(q) || 
+      String(r["Prontuário"]||"").toLowerCase().includes(q) || 
+      String(r["Procedimento"]||"").toLowerCase().includes(q) ||
+      String(r["Médico"]||"").toLowerCase().includes(q)
+    );
+  }
+
+  // ORDENAÇÃO AUTOMÁTICA HIERÁRQUICA
+  if(state.sortMode === "clinico"){
+    rows.sort((a, b) => {
+      let pA = getPrioridadeClinica(a);
+      let pB = getPrioridadeClinica(b);
+      if (pA !== pB) return pA - pB;
+      return String(a["LEC"]||"").localeCompare(String(b["LEC"]||""));
+    });
+  } else if(state.sortMode === "nome"){
+    rows.sort((a, b) => String(a["Paciente"]||"").localeCompare(String(b["Paciente"]||""), 'pt-BR'));
+  } else if(state.sortMode === "data"){
+    rows.sort((a, b) => String(a["Data Prevista"]||"").localeCompare(String(b["Data Prevista"]||"")));
+  }
+
+  return rows;
+}
+
+function renderKPIs(){
+  const total = state.data.length;
+  let urg=0, pref=0, int=0, norm=0;
+  state.data.forEach(r => {
+    let p = getPrioridadeClinica(r);
+    if(p === 3) urg++;
+    else if(p === 4) pref++;
+    else if(p === 2) int++;
+    else norm++;
+  });
+  document.getElementById('kpiRow').innerHTML = `
+    <div class="kpi all active"><div class="label">Total Fila</div><div class="num">${total}</div></div>
+    <div class="kpi urgente"><div class="label">Urgentes</div><div class="num">${urg}</div></div>
+    <div class="kpi preferente"><div class="label">Preferentes</div><div class="num">${pref}</div></div>
+    <div class="kpi internado"><div class="label">Internados</div><div class="num">${int}</div></div>
+    <div class="kpi eletivo"><div class="label">Normais / Outros</div><div class="num">${norm}</div></div>
+  `;
+}
+
+function renderTable(){
+  const rows = getVisibleRows();
+  const tbody = document.getElementById('tbody');
+  document.getElementById('resultCount').textContent = `Exibindo ${rows.length} de ${state.data.length} pacientes`;
+  document.getElementById('footerCount').textContent = `${state.data.length} pacientes na nuvem`;
+
+  tbody.innerHTML = rows.map(r => {
+    let p = getPrioridadeClinica(r);
+    let cls = "eletivo";
+    if(p === 3) cls = "urgente";
+    else if(p === 4) cls = "preferente";
+    else if(p === 2) cls = "internado";
+
+    const isOpen = state.expanded.has(r._idx);
+
+    let tr = `<tr class="row-${cls}">
+      <td class="mono">${r["Prontuário"]||"-"}</td>
+      <td class="paciente-name"><input class="cell-input" data-field="Paciente" data-idx="${r._idx}" value="${r["Paciente"]||""}"></td>
+      <td><input class="cell-input mono" style="width:65px" data-field="Leito" data-idx="${r._idx}" value="${r["Leito"]||"-"}"></td>
+      <td><input class="cell-input" data-field="Procedimento" data-idx="${r._idx}" value="${r["Procedimento"]||""}"></td>
+      <td><input class="cell-input" data-field="Médico" data-idx="${r._idx}" value="${r["Médico"]||""}"></td>
+      <td><input class="cell-input" data-field="Status" data-idx="${r._idx}" value="${r["Status"]||""}"></td>
+      <td><input class="cell-input mono" data-field="Data Prevista" data-idx="${r._idx}" value="${formatDataExibicao(r["Data Prevista"])}"></td>
+      <td><input class="cell-input mono" data-field="LEC" data-idx="${r._idx}" value="${formatDataExibicao(r["LEC"])}"></td>
+      <td><button class="expand-btn" data-toggle="${r._idx}">${isOpen?'▲':'▾'}</button></td>
+      <td><button class="expand-btn" data-del="${r._idx}">✕</button></td>
+    </tr>`;
+
+    if(isOpen){
+      tr += `<tr class="detail-row"><td colspan="10">
+        <div class="detail-grid">
+          <div class="detail-col"><label>Peso (kg)</label><input data-field="Peso" data-idx="${r._idx}" value="${r["Peso"]||""}"></div>
+          <div class="detail-col"><label>Altura (m)</label><input data-field="Altura" data-idx="${r._idx}" value="${r["Altura"]||""}"></div>
+          <div class="detail-col"><label>Tipagem</label><input data-field="Tipagem" data-idx="${r._idx}" value="${r["Tipagem"]||""}"></div>
+          <div class="detail-col"><label>Insumos</label><textarea data-field="Insumos" data-idx="${r._idx}">${r["Insumos"]||""}</textarea></div>
+          <div class="detail-col"><label>Observações</label><textarea data-field="Observaçõe" data-idx="${r._idx}">${r["Observaçõe"]||""}</textarea></div>
+          <div class="detail-col"><label>Cardiologista</label><input data-field="Cardiologista" data-idx="${r._idx}" value="${r["Cardiologista"]||""}"></div>
+          <div class="detail-col"><label>Cirurgia Cardíaca</label><input data-field="Cirurgia Cardíaca" data-idx="${r._idx}" value="${r["Cirurgia Cardíaca"]||""}"></div>
+          <div class="detail-col"><label>Odonto</label><input data-field="Odonto" data-idx="${r._idx}" value="${r["Odonto"]||""}"></div>
+          <div class="detail-col"><label>Contato</label><input data-field="Contato" data-idx="${r._idx}" value="${r["Contato"]||""}"></div>
+        </div>
+      </td></tr>`;
+    }
+    return tr;
+  }).join('');
+
+  attachEvents();
+}
+
+function attachEvents(){
+  document.querySelectorAll('input[data-field], textarea[data-field]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      const idx = inp.dataset.idx;
+      const field = inp.dataset.field;
+      state.data[idx][field] = inp.value;
+      persist();
+      if(field === "Status" || field === "Data Prevista") renderAll();
+    });
+  });
+  document.querySelectorAll('button[data-toggle]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.toggle);
+      if(state.expanded.has(idx)) state.expanded.delete(idx);
+      else state.expanded.add(idx);
+      renderTable();
+    });
+  });
+  document.querySelectorAll('button[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.del);
+      if(confirm(`Remover paciente ${state.data[idx]["Paciente"]}?`)){
+        state.data.splice(idx, 1);
+        persist(); renderAll();
+      }
+    });
+  });
+}
+
+function buildForm(){
+  document.getElementById('formGrid').innerHTML = COLUNAS.map(c => `
+    <div><label>${c}</label><input name="${c}"></div>
+  `).join('');
+}
+
+function openModal(){ buildForm(); document.getElementById('modalOverlay').classList.add('open'); }
+function closeModal(){ document.getElementById('modalOverlay').classList.remove('open'); }
+
+document.getElementById('btnAdd').addEventListener('click', openModal);
+document.getElementById('btnCancelAdd').addEventListener('click', closeModal);
+document.getElementById('btnSaveAdd').addEventListener('click', () => {
+  const obj = {};
+  COLUNAS.forEach(c => {
+    const el = document.querySelector(`input[name="${c}"]`);
+    obj[c] = el ? el.value : "";
+  });
+  if(!obj["Paciente"]){ alert("Preencha o nome do paciente."); return; }
+  state.data.push(obj);
+  persist(); closeModal(); renderAll();
+});
+
+document.getElementById('searchInput').addEventListener('input', e => { state.search = e.target.value; renderTable(); });
+document.getElementById('sortSelect').addEventListener('change', e => { state.sortMode = e.target.value; renderTable(); });
+document.getElementById('btnSort').addEventListener('click', () => { state.sortMode = "clinico"; renderTable(); });
+document.getElementById('btnRefreshData').addEventListener('click', loadFromNuvem);
+document.getElementById('btnResetFilters').addEventListener('click', () => {
+  state.search = ""; document.getElementById('searchInput').value = "";
+  state.sortMode = "clinico"; document.getElementById('sortSelect').value = "clinico";
+  renderAll();
+});
+
+document.getElementById('btnExport').addEventListener('click', () => {
+  const ws = XLSX.utils.json_to_sheet(state.data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Fila Cirúrgica");
+  XLSX.writeFile(wb, "Fila_Cirurgica_Definitiva.xlsx");
+});
+
+function buildECG(){
+  const unit = `<svg viewBox="0 0 460 46" xmlns="http://www.w3.org/2000/svg"><polyline points="0,23 60,23 72,23 80,4 88,40 96,14 104,23 200,23 212,23 220,4 228,40 236,14 244,23 340,23 352,23 360,4 368,40 376,14 384,23 460,23" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"/></svg>`;
+  document.getElementById('ecgTrack').innerHTML = unit + unit + unit;
+}
+
+function renderAll(){ renderKPIs(); renderTable(); }
+
+buildECG();
+loadFromNuvem();
+</script>
+</body>
+</html>
