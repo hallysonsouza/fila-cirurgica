@@ -140,7 +140,7 @@
     <div>
       <p class="eyebrow">Cirurgia Cardiovascular · Programação Adulto</p>
       <h1>Fila Cirúrgica</h1>
-      <p class="sub">Painel vivo sincronizado com o Google Sheets — ordenação clínica hierárquica automática.</p>
+      <p class="sub">Painel vivo sincronizado com o Google Sheets — ordenação clínica por prioridade e data da priorização.</p>
     </div>
     <div class="header-actions">
       <button class="btn" id="btnSort">↕ Prioridade Clínica</button>
@@ -214,12 +214,10 @@ const COLUNAS = [
 
 let state = { data: [], search: "", activeStatuses: new Set(), sortMode: "clinico", expanded: new Set() };
 
-/* FORMATAÇÃO DE DATAS COMPACTAS (DD/MM/YY - Ex: 31/07/26) */
 function formatDataExibicao(val) {
   if (!val || ["-", "nan", "none", "null", ""].includes(String(val).toLowerCase().trim())) return "-";
   let s = String(val).trim();
   
-  // 1. Trata formato extenso JS: "Fri Jul 31 2026 04:00:00 GMT-0300..."
   const months = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06', Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
   let matchJs = s.match(/([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
   if (matchJs && months[matchJs[2]]) {
@@ -229,7 +227,6 @@ function formatDataExibicao(val) {
     return `${dia}/${mes}/${ano}`;
   }
   
-  // 2. Trata formato ISO: "2026-07-31T00:00:00..."
   let matchIso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (matchIso) {
     let dia = matchIso[3];
@@ -238,7 +235,6 @@ function formatDataExibicao(val) {
     return `${dia}/${mes}/${ano}`;
   }
   
-  // 3. Trata formato DD/MM/YYYY para DD/MM/YY
   let matchBr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (matchBr) {
     let dia = matchBr[1].padStart(2, '0');
@@ -250,18 +246,81 @@ function formatDataExibicao(val) {
   return s;
 }
 
-function getPrioridadeClinica(row) {
+function extractDateKey(val) {
+  if (!val || ["-", "nan", "none", "null", ""].includes(String(val).toLowerCase().trim())) return "9999-99-99";
+  let s = String(val).trim();
+
+  const months = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06', Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
+  let matchJs = s.match(/([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (matchJs && months[matchJs[2]]) {
+    let dia = matchJs[3].padStart(2, '0');
+    let mes = months[matchJs[2]];
+    let ano = matchJs[4];
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  let matchIso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (matchIso) {
+    return `${matchIso[1]}-${matchIso[2]}-${matchIso[3]}`;
+  }
+
+  let matchBr = s.match(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})/);
+  if (matchBr) {
+    let dia = matchBr[1].padStart(2, '0');
+    let mes = matchBr[2].padStart(2, '0');
+    let ano = matchBr[3];
+    if (ano.length === 2) ano = "20" + ano;
+    return `${ano}-${mes}-${dia}`;
+  }
+
+  let matchYear = s.match(/^(\d{4})$/);
+  if (matchYear) {
+    return `${matchYear[1]}-01-01`;
+  }
+
+  return "9999-99-99";
+}
+
+function getSortKeys(row) {
   const status = String(row["Status"] || "").toLowerCase();
-  const dataPrev = String(row["Data Prevista"] || "").toLowerCase();
-  
-  if (dataPrev && !["-", "nan", "none", "", "null"].includes(dataPrev) && !dataPrev.includes("sobreaviso")) return 1;
-  if (status.includes("internado")) return 2;
-  if (status.includes("urgente") || status.includes("urgencia")) return 3;
-  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) return 4;
-  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) return 5;
-  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) return 6;
-  if (status.includes("inapta") || status.includes("inapto")) return 7;
-  return 8;
+  const dataPrev = String(row["Data Prevista"] || "").trim();
+  const lecStr = String(row["LEC"] || "").trim();
+
+  const dpDateKey = extractDateKey(dataPrev);
+  const statusDateKey = extractDateKey(row["Status"]);
+  const lecDateKey = extractDateKey(lecStr);
+
+  if (dpDateKey !== "9999-99-99") {
+    return { prio: 1, sortDate: dpDateKey };
+  }
+
+  if (status.includes("internado")) {
+    return { prio: 2, sortDate: statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey };
+  }
+
+  if (status.includes("urgente") || status.includes("urgencia")) {
+    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
+    return { prio: 3, sortDate: prioDate };
+  }
+
+  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) {
+    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
+    return { prio: 4, sortDate: prioDate };
+  }
+
+  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) {
+    return { prio: 5, sortDate: lecDateKey };
+  }
+
+  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) {
+    return { prio: 6, sortDate: lecDateKey };
+  }
+
+  if (status.includes("inapta") || status.includes("inapto")) {
+    return { prio: 7, sortDate: lecDateKey };
+  }
+
+  return { prio: 8, sortDate: lecDateKey };
 }
 
 async function loadFromNuvem(){
@@ -317,15 +376,22 @@ function getVisibleRows(){
 
   if(state.sortMode === "clinico"){
     rows.sort((a, b) => {
-      let pA = getPrioridadeClinica(a);
-      let pB = getPrioridadeClinica(b);
-      if (pA !== pB) return pA - pB;
-      return String(a["LEC"]||"").localeCompare(String(b["LEC"]||""));
+      let keyA = getSortKeys(a);
+      let keyB = getSortKeys(b);
+
+      if (keyA.prio !== keyB.prio) {
+        return keyA.prio - keyB.prio;
+      }
+      return keyA.sortDate.localeCompare(keyB.sortDate);
     });
   } else if(state.sortMode === "nome"){
     rows.sort((a, b) => String(a["Paciente"]||"").localeCompare(String(b["Paciente"]||""), 'pt-BR'));
   } else if(state.sortMode === "data"){
-    rows.sort((a, b) => String(a["Data Prevista"]||"").localeCompare(String(b["Data Prevista"]||"")));
+    rows.sort((a, b) => {
+      let kA = extractDateKey(a["Data Prevista"]);
+      let kB = extractDateKey(b["Data Prevista"]);
+      return kA.localeCompare(kB);
+    });
   }
 
   return rows;
@@ -335,11 +401,11 @@ function renderKPIs(){
   const total = state.data.length;
   let urg=0, pref=0, int=0, norm=0;
   state.data.forEach(r => {
-    let p = getPrioridadeClinica(r);
-    if(p === 3) urg++;
-    else if(p === 4) pref++;
-    else if(p === 2) int++;
-    else norm++;
+    let k = getSortKeys(r);
+    if(k.prio === 3) urg++;
+    else if(k.prio === 4) pref++;
+    else if(k.prio === 2) int++;
+    else if(k.prio !== 1) norm++;
   });
   document.getElementById('kpiRow').innerHTML = `
     <div class="kpi all active"><div class="label">Total Fila</div><div class="num">${total}</div></div>
@@ -357,11 +423,11 @@ function renderTable(){
   document.getElementById('footerCount').textContent = `${state.data.length} pacientes na nuvem`;
 
   tbody.innerHTML = rows.map(r => {
-    let p = getPrioridadeClinica(r);
+    let k = getSortKeys(r);
     let cls = "eletivo";
-    if(p === 3) cls = "urgente";
-    else if(p === 4) cls = "preferente";
-    else if(p === 2) cls = "internado";
+    if(k.prio === 3) cls = "urgente";
+    else if(k.prio === 4) cls = "preferente";
+    else if(k.prio === 2) cls = "internado";
 
     const isOpen = state.expanded.has(r._idx);
 
@@ -406,7 +472,7 @@ function attachEvents(){
       const field = inp.dataset.field;
       state.data[idx][field] = inp.value;
       persist();
-      if(field === "Status" || field === "Data Prevista") renderAll();
+      if(field === "Status" || field === "Data Prevista" || field === "LEC") renderAll();
     });
   });
   document.querySelectorAll('button[data-toggle]').forEach(btn => {
