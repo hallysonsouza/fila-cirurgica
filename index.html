@@ -85,7 +85,6 @@
   select.sortsel{padding:10px 12px; border-radius:8px; border:1px solid var(--line); background:var(--surface); font-size:13px;}
   .result-count{font-size:12.5px; color:var(--ink-soft); padding:0 32px 4px 32px;}
 
-  /* TABELA COM ROLAGEM E PROTEÇÃO CONTRA CORTES */
   .table-wrap{padding:6px 32px 40px 32px; overflow-x:auto;}
   table{
     width:100%; min-width:1150px; border-collapse:separate; border-spacing:0;
@@ -177,8 +176,8 @@
         <th style="min-width:140px;">Procedimento</th>
         <th style="min-width:140px;">Médico</th>
         <th style="min-width:190px;">Status</th>
-        <th style="min-width:130px;">Data Prevista</th>
-        <th style="min-width:100px;">LEC</th>
+        <th style="min-width:110px;">Data Prevista</th>
+        <th style="min-width:90px;">LEC</th>
         <th style="min-width:70px;">Detalhes</th>
         <th style="min-width:60px;">Ações</th>
       </tr>
@@ -204,7 +203,6 @@
 </div>
 
 <script>
-/* 🔴 SUA URL DO GOOGLE APPS SCRIPT PREENCHIDA AUTOMATICAMENTE: */
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwqM4b4u9G89idIdpAQnuroKWyoLYsvoPITNNl3gy7ONIIIvZmfPcAa4zJkp8B1oqna3g/exec";
 
 const COLUNAS = [
@@ -216,21 +214,42 @@ const COLUNAS = [
 
 let state = { data: [], search: "", activeStatuses: new Set(), sortMode: "clinico", expanded: new Set() };
 
-/* FORMATAÇÃO ROBUSTA DE DATAS (CONVERTE ISO EM DD/MM/YYYY) */
+/* FORMATAÇÃO DE DATAS COMPACTAS (DD/MM/YY - Ex: 31/07/26) */
 function formatDataExibicao(val) {
   if (!val || ["-", "nan", "none", "null", ""].includes(String(val).toLowerCase().trim())) return "-";
   let s = String(val).trim();
-  if (s.includes("T") || (s.includes("-") && s.length >= 10)) {
-    let cleanDate = s.split("T")[0];
-    let parts = cleanDate.split("-");
-    if (parts.length === 3 && parts[0].length === 4) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
+  
+  // 1. Trata formato extenso JS: "Fri Jul 31 2026 04:00:00 GMT-0300..."
+  const months = { Jan:'01', Feb:'02', Mar:'03', Apr:'04', May:'05', Jun:'06', Jul:'07', Aug:'08', Sep:'09', Oct:'10', Nov:'11', Dec:'12' };
+  let matchJs = s.match(/([A-Za-z]{3})\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+  if (matchJs && months[matchJs[2]]) {
+    let dia = matchJs[3].padStart(2, '0');
+    let mes = months[matchJs[2]];
+    let ano = matchJs[4].slice(-2);
+    return `${dia}/${mes}/${ano}`;
   }
+  
+  // 2. Trata formato ISO: "2026-07-31T00:00:00..."
+  let matchIso = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (matchIso) {
+    let dia = matchIso[3];
+    let mes = matchIso[2];
+    let ano = matchIso[1].slice(-2);
+    return `${dia}/${mes}/${ano}`;
+  }
+  
+  // 3. Trata formato DD/MM/YYYY para DD/MM/YY
+  let matchBr = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (matchBr) {
+    let dia = matchBr[1].padStart(2, '0');
+    let mes = matchBr[2].padStart(2, '0');
+    let ano = matchBr[3].slice(-2);
+    return `${dia}/${mes}/${ano}`;
+  }
+
   return s;
 }
 
-/* LÓGICA DE PRIORIDADE CLÍNICA (7 GRUPOS HIERÁRQUICOS) */
 function getPrioridadeClinica(row) {
   const status = String(row["Status"] || "").toLowerCase();
   const dataPrev = String(row["Data Prevista"] || "").toLowerCase();
@@ -296,7 +315,6 @@ function getVisibleRows(){
     );
   }
 
-  // ORDENAÇÃO AUTOMÁTICA HIERÁRQUICA
   if(state.sortMode === "clinico"){
     rows.sort((a, b) => {
       let pA = getPrioridadeClinica(a);
