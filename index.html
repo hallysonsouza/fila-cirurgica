@@ -86,15 +86,23 @@
   select.sortsel{padding:8px 10px; border-radius:7px; border:1px solid var(--line); background:var(--surface); font-size:12.5px;}
   .result-count{font-size:12px; color:var(--ink-soft); padding:0 20px 4px 20px;}
 
-  .table-wrap{padding:4px 20px 30px 20px; overflow-x:auto;}
+  /* TABELA COM ROLAGEM INTERNA E CABEÇALHO CONGELADO */
+  .table-wrap{
+    padding:4px 20px 20px 20px; 
+    overflow-x:auto; 
+    overflow-y:auto; 
+    max-height:70vh; /* Permite rolar a tabela internamente */
+  }
   table{
     width:100%; min-width:1000px; border-collapse:separate; border-spacing:0;
     background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
-    overflow:hidden; font-size:12.5px; table-layout:auto;
+    font-size:12.5px; table-layout:auto;
   }
   thead th{
     background:var(--accent-deep); color:#fff; font-weight:600; font-size:11px; letter-spacing:0.3px;
-    text-transform:uppercase; padding:9px 8px; text-align:left; white-space:nowrap; position:sticky; top:0;
+    text-transform:uppercase; padding:10px 8px; text-align:left; white-space:nowrap; 
+    position:sticky; top:0; z-index:10; /* Mantém os nomes das colunas fixos ao rolar */
+    box-shadow:0 1px 2px rgba(0,0,0,0.15);
   }
   tbody td{padding:7px 8px; border-top:1px solid var(--line); vertical-align:middle;}
   tbody tr.row-urgente{background:var(--urgente-bg);}
