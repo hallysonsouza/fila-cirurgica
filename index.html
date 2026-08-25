@@ -299,56 +299,53 @@ function getSortKeys(row) {
   const statusDateKey = extractDateKey(row["Status"]);
   const lecDateKey = extractDateKey(lecStr);
 
-  const temInternarNaData = dataPrev.includes("internar");
+  const temInternar = status.includes("internar") || dataPrev.includes("internar");
 
-  // 1. Pacientes já INTERNADOS que possuem Data Prevista definida para a cirurgia
-  if (status.includes("internado") && dpDateKey !== "9999-99-99" && !temInternarNaData) {
+  // 1. Data Prevista cirúrgica confirmada (topo absoluto)
+  if (dpDateKey !== "9999-99-99" && !temInternar) {
     return { prio: 1, sortDate: dpDateKey };
   }
 
-  // 2. Pacientes já INTERNADOS sem Data Prevista exata
+  // 2. Pacientes já INTERNADOS
   if (status.includes("internado")) {
-    return { prio: 2, sortDate: statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey };
+    let sortDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
+    return { prio: 2, sortDate: sortDate };
   }
 
-  // 3. Pacientes com previsão de INTERNAR (seja no Status ou na Data Prevista)
-  if (status.includes("internar") || temInternarNaData) {
-    return { prio: 3, sortDate: dpDateKey !== "9999-99-99" ? dpDateKey : (statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey) };
+  // 3. Pacientes com indicação INTERNAR (ficam logo após os Internados)
+  if (temInternar) {
+    let sortDate = dpDateKey !== "9999-99-99" ? dpDateKey : (statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey);
+    return { prio: 3, sortDate: sortDate };
   }
 
-  // 4. Demais pacientes com Data Prevista cirúrgica confirmada
-  if (dpDateKey !== "9999-99-99" && !temInternarNaData) {
-    return { prio: 4, sortDate: dpDateKey };
-  }
-
-  // 5. URGENTES
+  // 4. URGENTES sem data
   if (status.includes("urgente") || status.includes("urgencia")) {
+    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
+    return { prio: 4, sortDate: prioDate };
+  }
+
+  // 5. PREFERENTES sem data
+  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) {
     let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
     return { prio: 5, sortDate: prioDate };
   }
 
-  // 6. PREFERENTES
-  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) {
-    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
-    return { prio: 6, sortDate: prioDate };
+  // 6. NORMAIS / OUTROS
+  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) {
+    return { prio: 6, sortDate: lecDateKey };
   }
 
-  // 7. NORMAIS / OUTROS
-  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) {
+  // 7. FORA DA LEC
+  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) {
     return { prio: 7, sortDate: lecDateKey };
   }
 
-  // 8. FORA DA LEC
-  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) {
+  // 8. INAPTOS
+  if (status.includes("inapta") || status.includes("inapto")) {
     return { prio: 8, sortDate: lecDateKey };
   }
 
-  // 9. INAPTOS
-  if (status.includes("inapta") || status.includes("inapto")) {
-    return { prio: 9, sortDate: lecDateKey };
-  }
-
-  return { prio: 10, sortDate: lecDateKey };
+  return { prio: 9, sortDate: lecDateKey };
 }
 
 async function loadFromNuvem(){
