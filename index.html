@@ -299,37 +299,49 @@ function getSortKeys(row) {
   const statusDateKey = extractDateKey(row["Status"]);
   const lecDateKey = extractDateKey(lecStr);
 
+  // Prioridade 1: Data Prevista definida
   if (dpDateKey !== "9999-99-99") {
     return { prio: 1, sortDate: dpDateKey };
   }
 
+  // Prioridade 2: Pacientes que já estão INTERNADOS
   if (status.includes("internado")) {
     return { prio: 2, sortDate: statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey };
   }
 
-  if (status.includes("urgente") || status.includes("urgencia")) {
-    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
-    return { prio: 3, sortDate: prioDate };
+  // Prioridade 3: Pacientes com status INTERNAR (ficam logo após os já internados)
+  if (status.includes("internar")) {
+    return { prio: 3, sortDate: statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey };
   }
 
-  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) {
+  // Prioridade 4: Pacientes URGENTES
+  if (status.includes("urgente") || status.includes("urgencia")) {
     let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
     return { prio: 4, sortDate: prioDate };
   }
 
-  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) {
-    return { prio: 5, sortDate: lecDateKey };
+  // Prioridade 5: Pacientes PREFERENTES
+  if (status.includes("preferente") || status.includes("preferene") || status.includes("preferemte")) {
+    let prioDate = statusDateKey !== "9999-99-99" ? statusDateKey : lecDateKey;
+    return { prio: 5, sortDate: prioDate };
   }
 
-  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) {
+  // Prioridade 6: Pacientes NORMAIS ou sem priorização especial
+  if (status.includes("normal") || ["-", "nan", "", "none"].includes(status)) {
     return { prio: 6, sortDate: lecDateKey };
   }
 
-  if (status.includes("inapta") || status.includes("inapto")) {
+  // Prioridade 7: Pacientes FORA DA LEC
+  if (status.includes("não está") || status.includes("na lec") || status.includes("fora")) {
     return { prio: 7, sortDate: lecDateKey };
   }
 
-  return { prio: 8, sortDate: lecDateKey };
+  // Prioridade 8: Pacientes INAPTOS
+  if (status.includes("inapta") || status.includes("inapto")) {
+    return { prio: 8, sortDate: lecDateKey };
+  }
+
+  return { prio: 9, sortDate: lecDateKey };
 }
 
 async function loadFromNuvem(){
